@@ -3,9 +3,14 @@ package com.example.doannhac;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Message;
 import android.view.MenuItem;
@@ -18,6 +23,9 @@ import android.view.View;
 import android.os.Handler;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import androidx.appcompat.app.ActionBar;
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,6 +34,7 @@ import java.util.ArrayList;
 
 public class MusicPlayerActivity extends AppCompatActivity{
     // views declaration
+    private static final int REQUEST_PERMISSION = 99;
     Bundle songExtraData;
     TextView tvTime, tvTitle, tvArtist;
     TextView tvDuration;
@@ -36,6 +45,7 @@ public class MusicPlayerActivity extends AppCompatActivity{
     Button btnPlay;
     static MediaPlayer mMediaPlayer;
     ArrayList<Song> musicList;
+    NotificationManager notificationManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,6 +57,9 @@ public class MusicPlayerActivity extends AppCompatActivity{
             actionBar.setDisplayHomeAsUpEnabled(true);
         }
 
+        NotificationChannel channel=new NotificationChannel("My notification","My notification",NotificationManager.IMPORTANCE_DEFAULT);
+        NotificationManager manager=getSystemService(NotificationManager.class);
+        manager.createNotificationChannel(channel);
 
         Song song = (Song) getIntent().getSerializableExtra("song");
 
@@ -107,6 +120,7 @@ public class MusicPlayerActivity extends AppCompatActivity{
             }
         });
     }//end main
+
 
     private void initializeMusicPlayer(int position) {
         // if mediaplayer is not null and playing reset it at the launch of activity
@@ -243,9 +257,22 @@ public class MusicPlayerActivity extends AppCompatActivity{
         return minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
     }
 
-    private void play() {
-        // if mediaplayer is not null and playing and if play button is pressed pause it
 
+    private void play() {
+        NotificationCompat.Builder builder=new NotificationCompat.Builder(MusicPlayerActivity.this,"My notification");
+        builder.setContentTitle("My Title");
+        builder.setContentText("Phat nhac di");
+        builder.setSmallIcon(R.drawable.ic_music_note);
+        builder.setAutoCancel(true);
+
+        NotificationManagerCompat managerCompat=NotificationManagerCompat.from(MusicPlayerActivity.this);
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.POST_NOTIFICATIONS},REQUEST_PERMISSION);
+            return;
+        } else {
+            managerCompat.notify(1,builder.build());
+        }
+        // if mediaplayer is not null and playing and if play button is pressed pause it
         if (mMediaPlayer!=null && mMediaPlayer.isPlaying()) {
             mMediaPlayer.pause();
             // change the image of playpause button to play when we pause it

@@ -3,6 +3,8 @@ package com.example.doannhac;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 
 import android.content.ContentResolver;
 import android.content.Intent;
@@ -19,6 +21,7 @@ import java.io.File;
 import java.util.ArrayList;
 
 import android.Manifest;
+
 
 
 public class ListMusicActivity extends AppCompatActivity {
@@ -49,6 +52,7 @@ public class ListMusicActivity extends AppCompatActivity {
             //ban co quyen de doc nhac tu may tinh
             getSongs();
         }
+
 
         lvSongs.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -98,4 +102,5 @@ public class ListMusicActivity extends AppCompatActivity {
 
         songsAdapter.notifyDataSetChanged();
     }
+
 }
