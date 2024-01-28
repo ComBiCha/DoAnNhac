@@ -44,7 +44,11 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-
     implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.android.exoplayer:exoplayer:2.19.1")
+    implementation("de.hdodenhof:circleimageview:3.1.0")
+    implementation("io.github.gautamchibde:audiovisualizer:2.2.5")
+    implementation("androidx.palette:palette:1.0.0")
+    implementation("com.github.jgabrielfreitas:BlurImageView:1.0.1")
 
 }

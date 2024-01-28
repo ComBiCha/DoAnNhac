@@ -25,11 +25,18 @@ public class SongsAdapter extends ArrayAdapter<Song> {
 
         TextView tvTitle = convertView.findViewById(R.id.tvTitle);
         TextView tvArtist = convertView.findViewById(R.id.tvArtist);
-
+        TextView tvDuration=convertView.findViewById(R.id.tvDuration);
         Song song = getItem(position);
         tvTitle.setText(song.getTitle());
         tvArtist.setText(song.getArtist());
+        tvDuration.setText(millisecondsToString(song.getDuration()));
+
 
         return convertView;
+    }
+    public String millisecondsToString(int time) {
+        int minutes = time / 1000 / 60;
+        int seconds = time / 1000 % 60;
+        return minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
     }
 }

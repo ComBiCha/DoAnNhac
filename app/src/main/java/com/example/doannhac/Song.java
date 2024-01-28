@@ -7,11 +7,17 @@ public class Song implements Serializable {
     private String title;
     private String artist;
     private String path;
+    private int duration;
 
-    public Song(String title, String artist, String path) {
+    public Song(String title, String artist, String path,int duration) {
         this.title = title;
         this.artist = artist;
         this.path = path;
+        this.duration=duration;
+    }
+
+    public int getDuration() {
+        return duration;
     }
 
     public String getTitle() {

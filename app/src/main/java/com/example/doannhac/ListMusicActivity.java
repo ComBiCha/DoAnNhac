@@ -15,6 +15,7 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
 
+import java.io.File;
 import java.util.ArrayList;
 
 import android.Manifest;
@@ -41,7 +42,7 @@ public class ListMusicActivity extends AppCompatActivity {
         songsAdapter = new SongsAdapter(this, songArrayList);
         lvSongs.setAdapter(songsAdapter);
 
-        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.INTERNET},REQUEST_PERMISSION);
             return;
         } else {
@@ -55,6 +56,8 @@ public class ListMusicActivity extends AppCompatActivity {
                 Song song = songArrayList.get(position);
                 Intent openMusicPlayer = new Intent(ListMusicActivity.this, MusicPlayerActivity.class);
                 openMusicPlayer.putExtra("song", song);
+                openMusicPlayer.putExtra("musics",songArrayList);
+                openMusicPlayer.putExtra("position",position);
                 startActivity(openMusicPlayer);
             }
         });
@@ -81,13 +84,15 @@ public class ListMusicActivity extends AppCompatActivity {
             int indexTitle = songCursor.getColumnIndex(MediaStore.Audio.Media.TITLE);
             int indexArtist = songCursor.getColumnIndex(MediaStore.Audio.Media.ARTIST);
             int indexData = songCursor.getColumnIndex(MediaStore.Audio.Media.DATA);
+            int indexDuration=songCursor.getColumnIndex(MediaStore.Audio.Media.DURATION);
 
             do {
                 String title = songCursor.getString(indexTitle);
                 String artist = songCursor.getString(indexArtist);
                 String path = songCursor.getString(indexData);
-                Song song = new Song(title, artist, path);
-                songArrayList.add(new Song(title, artist, path));
+                int duration= Integer.parseInt(songCursor.getString(indexDuration));
+                Song song = new Song(title, artist, path,duration);
+                songArrayList.add(new Song(title, artist, path,duration));
             } while (songCursor.moveToNext());
         }
 

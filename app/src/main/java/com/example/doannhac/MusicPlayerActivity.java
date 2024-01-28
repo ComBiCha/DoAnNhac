@@ -2,7 +2,12 @@ package com.example.doannhac;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+
+import android.annotation.SuppressLint;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Message;
 import android.view.MenuItem;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -14,19 +19,23 @@ import android.os.Handler;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import androidx.appcompat.app.ActionBar;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 
 
-public class MusicPlayerActivity extends AppCompatActivity implements View.OnClickListener {
+public class MusicPlayerActivity extends AppCompatActivity{
     // views declaration
+    Bundle songExtraData;
     TextView tvTime, tvTitle, tvArtist;
     TextView tvDuration;
-
+    int position;
     ImageView nextBtn, previousBtn;
     SeekBar seekBarTime;
     SeekBar seekBarVolume;
     Button btnPlay;
-    MediaPlayer musicplayer;
+    static MediaPlayer mMediaPlayer;
+    ArrayList<Song> musicList;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,26 +60,103 @@ public class MusicPlayerActivity extends AppCompatActivity implements View.OnCli
         tvTitle = findViewById(R.id.tvTitle);
         tvArtist = findViewById(R.id.tvArtist);
 
-        tvTitle.setText(song.getTitle());
-        tvArtist.setText(song.getArtist());
+//        tvTitle.setText(song.getTitle());
+//        tvArtist.setText(song.getArtist());
 
-        musicplayer = new MediaPlayer();
-        try {
-            musicplayer.setDataSource(song.getPath());
-            musicplayer.prepare();
-        } catch (IOException e) {
-            e.printStackTrace();
+        if(mMediaPlayer!=null)
+        {
+            mMediaPlayer.stop();
         }
 
-        musicplayer.setLooping(true); // lap lai
-        musicplayer.seekTo(0);
-        musicplayer.setVolume(0.5f, 0.5f); // am luong
-        String duration = millisecondsToString(musicplayer.getDuration());
+        //getting values from previous activity
+        Intent intent = getIntent();
+        songExtraData = intent.getExtras();
+        musicList = (ArrayList)songExtraData.getParcelableArrayList("musics");
+        position = songExtraData.getInt("position", 0);
+
+        initializeMusicPlayer(position);
+        btnPlay.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                play();
+            }
+        });
+        nextBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(position<musicList.size()-1)
+                {
+                    position++;
+                }
+                else {
+                    position=0;
+                }
+                initializeMusicPlayer(position);
+            }
+        });
+        previousBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(position<=0){
+                    position=musicList.size()-1;
+                }
+                else {
+                    position--;
+                }
+                initializeMusicPlayer(position);
+            }
+        });
+    }//end main
+
+    private void initializeMusicPlayer(int position) {
+        // if mediaplayer is not null and playing reset it at the launch of activity
+
+        if (mMediaPlayer!=null && mMediaPlayer.isPlaying()) {
+            mMediaPlayer.reset();
+        }
+
+        // getting out the song name
+        String name = musicList.get(position).getTitle();
+        tvTitle.setText(name);
+        String artist=musicList.get(position).getArtist();
+        String duration = millisecondsToString(musicList.get(position).getDuration());
         tvDuration.setText(duration);
-        btnPlay.setOnClickListener(this);
-        nextBtn.setOnClickListener(v -> playNextSong());
-        previousBtn.setOnClickListener(v -> playPreviousSong());
-        // thanh am luong
+        // accessing the songs on storage
+
+        Uri uri = Uri.parse(musicList.get(position).getPath());
+
+        // creating a mediaplayer
+        // passing the uri
+
+        mMediaPlayer = MediaPlayer.create(this, uri);
+
+        // SETTING ON PREPARED MEDIAPLAYER
+
+        mMediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+            @Override
+            public void onPrepared(MediaPlayer mp) {
+
+                // seekbar
+                seekBarTime.setMax(mMediaPlayer.getDuration());
+
+                // while mediaplayer is playing the play button should display pause
+                btnPlay.setBackgroundResource(R.drawable.ic_pause);
+                // start the mediaplayer
+                mMediaPlayer.start();
+            }
+        });
+
+        // setting the oncompletion listener
+        // after song finishes what should happen // for now we will just set the pause button to play
+
+        mMediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mp) {
+                btnPlay.setBackgroundResource(R.drawable.ic_play);
+            }
+        });
+
+        //volume bar
         seekBarVolume.setProgress(50);
         seekBarVolume.setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
             @Override
@@ -79,7 +165,7 @@ public class MusicPlayerActivity extends AppCompatActivity implements View.OnCli
                 // You can use 'progress' to get the current progress value
                 // tang giam am luong
                 float volume = (float) progress / 100f;
-                musicplayer.setVolume(volume, volume);
+                mMediaPlayer.setVolume(volume, volume);
             }
 
             @Override
@@ -92,15 +178,36 @@ public class MusicPlayerActivity extends AppCompatActivity implements View.OnCli
                 // Handle the stop of tracking touch
             }
         });
+
+        // if you want the the mediaplayer to go to next song after its finished playing one song its optional
+        mMediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mp) {
+                btnPlay.setBackgroundResource(R.drawable.ic_play);
+
+                int currentPosition = position;
+                if (currentPosition < musicList.size() -1) {
+                    currentPosition++;
+                } else {
+                    currentPosition = 0;
+                }
+                initializeMusicPlayer(currentPosition);
+
+            }
+        });
+
+
+        // working on seekbar
+
         // thanh thoi gian bai hat
-        seekBarTime.setMax(musicplayer.getDuration());
+        seekBarTime.setMax(mMediaPlayer.getDuration());
         Handler handler = new Handler();
         // Update seek bar and time TextView periodically
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (musicplayer.isPlaying()) {
-                    int currentPosition = musicplayer.getCurrentPosition();
+                if (mMediaPlayer.isPlaying()) {
+                    int currentPosition = mMediaPlayer.getCurrentPosition();
                     seekBarTime.setProgress(currentPosition);
                     tvTime.setText(millisecondsToString(currentPosition));
                 }
@@ -111,7 +218,7 @@ public class MusicPlayerActivity extends AppCompatActivity implements View.OnCli
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
-                    musicplayer.seekTo(progress);
+                    mMediaPlayer.seekTo(progress);
                     tvTime.setText(millisecondsToString(progress));
                 }
             }
@@ -126,7 +233,8 @@ public class MusicPlayerActivity extends AppCompatActivity implements View.OnCli
                 // Handle the stop of tracking touch
             }
         });
-    }//end main
+    }
+
 
     //chinh thoi gian
     public String millisecondsToString(int time) {
@@ -135,38 +243,19 @@ public class MusicPlayerActivity extends AppCompatActivity implements View.OnCli
         return minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
     }
 
-    private void playNextSong() {
+    private void play() {
+        // if mediaplayer is not null and playing and if play button is pressed pause it
 
-    }
+        if (mMediaPlayer!=null && mMediaPlayer.isPlaying()) {
+            mMediaPlayer.pause();
+            // change the image of playpause button to play when we pause it
+            btnPlay.setBackgroundResource(R.drawable.ic_play);
+        } else {
+            mMediaPlayer.start();
+            // if mediaplayer is playing // the image of play button should display pause
+            btnPlay.setBackgroundResource(R.drawable.ic_pause);
 
-    private void playPreviousSong() {
-
-    }
-
-    @Override
-    public void onClick(View v) {
-        if (v.getId() == R.id.btnPlay) {
-            if (musicplayer.isPlaying()) {
-                // dang nghe nhac
-                musicplayer.pause();
-                btnPlay.setBackgroundResource(R.drawable.ic_play);
-            } else {
-                // dang tam dung
-                musicplayer.start();
-                btnPlay.setBackgroundResource(R.drawable.ic_pause);
-            }
         }
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if(item.getItemId() == android.R.id.home){
-            finish();
-            if(musicplayer.isPlaying()) {
-                musicplayer.stop();
-            }
-        }
-        return super.onOptionsItemSelected(item);
     }
 }
 
