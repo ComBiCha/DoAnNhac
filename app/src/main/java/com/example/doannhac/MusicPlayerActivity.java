@@ -1,18 +1,35 @@
 package com.example.doannhac;
 
+import static com.example.doannhac.ApplicationClass.ACTION_NEXTS;
+import static com.example.doannhac.ApplicationClass.ACTION_PLAY;
+import static com.example.doannhac.ApplicationClass.ACTION_PREV;
+import static com.example.doannhac.ApplicationClass.CHANNEL_ID_2;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.media.session.MediaSession;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.os.Message;
+import android.support.v4.media.MediaMetadataCompat;
+import android.support.v4.media.session.MediaSessionCompat;
+import android.support.v4.media.session.PlaybackStateCompat;
+import android.util.Log;
 import android.view.MenuItem;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -32,7 +49,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 
-public class MusicPlayerActivity extends AppCompatActivity{
+public class MusicPlayerActivity extends AppCompatActivity implements ActionPlaying,ServiceConnection {
     // views declaration
     private static final int REQUEST_PERMISSION = 99;
     Bundle songExtraData;
@@ -46,6 +63,8 @@ public class MusicPlayerActivity extends AppCompatActivity{
     static MediaPlayer mMediaPlayer;
     ArrayList<Song> musicList;
     NotificationManager notificationManager;
+    MusicService musicService;
+    MediaSessionCompat mediaSession;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,10 +75,6 @@ public class MusicPlayerActivity extends AppCompatActivity{
         if (actionBar != null) {
             actionBar.setDisplayHomeAsUpEnabled(true);
         }
-
-        NotificationChannel channel=new NotificationChannel("My notification","My notification",NotificationManager.IMPORTANCE_DEFAULT);
-        NotificationManager manager=getSystemService(NotificationManager.class);
-        manager.createNotificationChannel(channel);
 
         Song song = (Song) getIntent().getSerializableExtra("song");
 
@@ -72,10 +87,7 @@ public class MusicPlayerActivity extends AppCompatActivity{
         previousBtn = findViewById(R.id.previous);
         tvTitle = findViewById(R.id.tvTitle);
         tvArtist = findViewById(R.id.tvArtist);
-
-//        tvTitle.setText(song.getTitle());
-//        tvArtist.setText(song.getArtist());
-
+        mediaSession=new MediaSessionCompat(this,"PlayerAudio");
         if(mMediaPlayer!=null)
         {
             mMediaPlayer.stop();
@@ -91,32 +103,19 @@ public class MusicPlayerActivity extends AppCompatActivity{
         btnPlay.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                play();
+                playClicked();
             }
         });
         nextBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(position<musicList.size()-1)
-                {
-                    position++;
-                }
-                else {
-                    position=0;
-                }
-                initializeMusicPlayer(position);
+                nextClicked();
             }
         });
         previousBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(position<=0){
-                    position=musicList.size()-1;
-                }
-                else {
-                    position--;
-                }
-                initializeMusicPlayer(position);
+                prevClicked();
             }
         });
     }//end main
@@ -156,6 +155,7 @@ public class MusicPlayerActivity extends AppCompatActivity{
                 // while mediaplayer is playing the play button should display pause
                 btnPlay.setBackgroundResource(R.drawable.ic_pause);
                 // start the mediaplayer
+                showNotification(R.drawable.ic_pause,0F);
                 mMediaPlayer.start();
             }
         });
@@ -258,30 +258,113 @@ public class MusicPlayerActivity extends AppCompatActivity{
     }
 
 
-    private void play() {
-        NotificationCompat.Builder builder=new NotificationCompat.Builder(MusicPlayerActivity.this,"My notification");
-        builder.setContentTitle("My Title");
-        builder.setContentText("Phat nhac di");
-        builder.setSmallIcon(R.drawable.ic_music_note);
-        builder.setAutoCancel(true);
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Intent intentSer=new Intent(this,MusicService.class);
+        bindService(intentSer,this,BIND_AUTO_CREATE);
+    }
 
-        NotificationManagerCompat managerCompat=NotificationManagerCompat.from(MusicPlayerActivity.this);
-        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.POST_NOTIFICATIONS},REQUEST_PERMISSION);
-            return;
-        } else {
-            managerCompat.notify(1,builder.build());
+    @Override
+    protected void onPause() {
+        super.onPause();
+        unbindService(this);
+    }
+
+    @Override
+    public void onServiceConnected(ComponentName name, IBinder service) {
+        MusicService.MyBinder binder=(MusicService.MyBinder)service;
+        musicService= binder.getService();
+        musicService.setCallback(MusicPlayerActivity.this);
+        Log.e("Connected",musicService+ "");
+    }
+
+    @Override
+    public void onServiceDisconnected(ComponentName name) {
+        musicService=null;
+        Log.e("Disconnected",musicService+ "");
+    }
+    public void showNotification(int playPauseBtn, Float playbackSpeed)
+    {
+        Intent intent=new Intent(this,MusicPlayerActivity.class);
+        PendingIntent contentIntent=PendingIntent.getActivity(this,0,intent, PendingIntent.FLAG_IMMUTABLE);
+        Intent prevIntent=new Intent(this,NotificationReceiver.class).setAction(ACTION_PREV);
+        PendingIntent prevPendingIntent=PendingIntent.getBroadcast(this,0,prevIntent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+        Intent playIntent=new Intent(this,NotificationReceiver.class).setAction(ACTION_PLAY);
+        PendingIntent playPendingIntent=PendingIntent.getBroadcast(this,0,playIntent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+        Intent nextIntent=new Intent(this,NotificationReceiver.class).setAction(ACTION_NEXTS);
+        PendingIntent nextPendingIntent=PendingIntent.getBroadcast(this,0,nextIntent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+        Bitmap picture= BitmapFactory.decodeResource(getResources(),R.drawable.posterbeoi2);
+        Notification notification=new NotificationCompat.Builder(this,CHANNEL_ID_2)
+                .setSmallIcon(R.drawable.ic_music_note)
+                .setLargeIcon(picture)
+                .setContentTitle(musicList.get(position).getTitle())
+                .setContentText(musicList.get(position).getArtist())
+                .addAction(R.drawable.ic_baseline_skip_previous_24,"Previous",prevPendingIntent)
+                .addAction(playPauseBtn,"Play",playPendingIntent)
+                .addAction(R.drawable.ic_baseline_skip_next_24,"Next",nextPendingIntent)
+                .setStyle(new androidx.media.app.NotificationCompat.MediaStyle()
+                        .setMediaSession(mediaSession.getSessionToken()))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setContentIntent(contentIntent)
+                .setOnlyAlertOnce(true)
+                .build();
+        NotificationManager notificationManager= (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        notificationManager.notify(0,notification);
+//        mediaSession.setMetadata(new MediaMetadataCompat.Builder()
+//                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION,musicList.get(position).getDuration())
+//                .build());
+//        mediaSession.setPlaybackState(new PlaybackStateCompat.Builder()
+//                .setState(PlaybackStateCompat.STATE_PLAYING,mMediaPlayer.getCurrentPosition(),playbackSpeed)
+//                .setActions(PlaybackStateCompat.ACTION_SEEK_TO)
+//                .build());
+    }
+
+    @Override
+    public void nextClicked() {
+        if(position<musicList.size()-1)
+        {
+            position++;
         }
-        // if mediaplayer is not null and playing and if play button is pressed pause it
+        else {
+            position=0;
+        }
+        initializeMusicPlayer(position);
+        if (mMediaPlayer!=null && mMediaPlayer.isPlaying()) {
+            showNotification(R.drawable.ic_play,0F);
+        } else {
+            showNotification(R.drawable.ic_pause,0F);
+        }
+    }
+
+    @Override
+    public void prevClicked() {
+        if(position<=0){
+            position=musicList.size()-1;
+        }
+        else {
+            position--;
+        }
+        initializeMusicPlayer(position);
+        if (mMediaPlayer!=null && mMediaPlayer.isPlaying()) {
+            showNotification(R.drawable.ic_play,0F);
+        } else {
+            showNotification(R.drawable.ic_pause,0F);
+        }
+    }
+
+    @Override
+    public void playClicked() {
         if (mMediaPlayer!=null && mMediaPlayer.isPlaying()) {
             mMediaPlayer.pause();
             // change the image of playpause button to play when we pause it
             btnPlay.setBackgroundResource(R.drawable.ic_play);
+            showNotification(R.drawable.ic_play,0F);
         } else {
             mMediaPlayer.start();
             // if mediaplayer is playing // the image of play button should display pause
             btnPlay.setBackgroundResource(R.drawable.ic_pause);
-
+            showNotification(R.drawable.ic_pause,0F);
         }
     }
 }

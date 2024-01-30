@@ -51,5 +51,6 @@ dependencies {
     implementation("androidx.palette:palette:1.0.0")
     implementation("com.github.jgabrielfreitas:BlurImageView:1.0.1")
     implementation("androidx.media:media:1.7.0")
+    implementation("androidx.legacy:legacy-support-v4:1.0.0")
 
 }

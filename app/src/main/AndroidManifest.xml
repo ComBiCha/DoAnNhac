@@ -7,6 +7,7 @@
 
     <application
         android:allowBackup="true"
+        android:name=".ApplicationClass"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -40,6 +41,16 @@
             android:name=".SignUpActivity"
             android:exported="false"
             />
+
+        <service android:name="com.example.doannhac.MusicService" android:enabled="true"/>
+        <receiver android:name=".NotificationReceiver" android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="NEXTS"/>
+                <action android:name="PLAY"/>
+                <action android:name="PREVIOUS"/>
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
